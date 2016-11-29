@@ -107,7 +107,7 @@ public class Mallocator
 		Queue<PCB> rejectQueue = new LinkedList<PCB>();
 		
 		while (!processQueue.isEmpty()) {
-			int smfitix = -1;	// Index of smallest mem slot large enough to fit process
+			int smfitix = -1;					// Index of smallest mem slot large enough to fit process
 			int smfitsz = Integer.MAX_VALUE;	// Size of smallest mem slot large enough to fit process
 			for (int i = 0; i < memory.length; i++) {
 				int slotSpace = memory[i].getSpace();
@@ -148,8 +148,8 @@ public class Mallocator
 		Queue<PCB> rejectQueue = new LinkedList<PCB>();
 		
 		while (!processQueue.isEmpty()) {
-			int smfitix = -1;	// Index of smallest mem slot large enough to fit process
-			int smfitsz = Integer.MAX_VALUE;	// Size of smallest mem slot large enough to fit process
+			int smfitix = -1;					// Index of biggest mem slot at least large enough to fit process
+			int smfitsz = 0;	 				// Size of biggest mem slot at least large enough to fit process
 			for (int i = 0; i < memory.length; i++) {
 				int slotSpace = memory[i].getSpace();
 				if (processQueue.peek().size <= slotSpace
@@ -219,7 +219,7 @@ public class Mallocator
 			try {
 				m.firstFit();
 				m.bestFit();
-				//m.worstFit();
+				m.worstFit();
 				
 			} catch (FileNotFoundException e) {
 				System.out.println(e.getMessage());
