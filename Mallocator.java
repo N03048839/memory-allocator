@@ -1,15 +1,14 @@
 package mallocator;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.InputMismatchException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Scanner;
-import java.util.Set;
 
 public class Mallocator implements Runnable
 {
@@ -58,40 +57,57 @@ public class Mallocator implements Runnable
 		if (!QUIET) System.out.println("\n -------- MEM ALLOCATOR Constructed --------\n\n");
 	}
 	
-	
-	/**
-	 *  Begins execution of this Allocator.
-	 */
-	public void run() throws IOException {
-		if (!QUIET) System.out.println(" ---------- MEM ALLOCATOR Execution ----------\n");
-		
-		
-		
-		/* First fit */
+	public void firstFit() throws FileNotFoundException 
+	{
 		if (!QUIET) System.out.println("     ~ First Fit ~");
-		PrintWriter ffoutfile = new PrintWriter(outfilenames[0]);
-		Queue<PCB> ffq = new LinkedList<PCB>(processQueue);
-		while (!ffq.isEmpty()) {
+		
+		MSB[] memory = new MSB[this.Memory.length];
+		System.arraycopy(this.Memory, 0, memory, 0, this.Memory.length);
+		PrintWriter outfile = new PrintWriter(outfilenames[0]);
+		Queue<PCB> processQueue = new LinkedList<PCB>(this.processQueue);
+		Queue<PCB> rejectQueue = new LinkedList<PCB>();
+		
+		while (!processQueue.isEmpty()) 
+		{
+			boolean added = false;
 			// Iterate across all memory slots
-			for (int i = 0; i < Memory.length; i++) {
+			for (int i = 0; i < memory.length && !added; i++) 
+			{
 				// Choose the first one with sufficient space
-				if (ffq.peek().size <= Memory[i].getSpace())
-					Memory[i].add(ffq.poll());
+				if (processQueue.peek().size <= memory[i].getSpace()) {
+					memory[i].add(processQueue.poll());
+					added = true;
+				}
 			}
+			if (!added) rejectQueue.add(processQueue.poll());
 		}
 		
+		for (MSB slot : memory) 
+		{
+			//TODO: implement file output
+		}
 		
-		
-		/* Best fit */
+		outfile.close();
+	}
+	
+	
+	
+	public void bestFit() throws FileNotFoundException
+	{
 		if (!QUIET) System.out.println("     ~ Best Fit ~");
-		PrintWriter bfoutfile = new PrintWriter(outfilenames[1]);
-		Queue<PCB> bfq = new LinkedList<PCB>(processQueue);
-		while (!bfq.isEmpty()) {
+		
+		MSB[] memory = new MSB[this.Memory.length];
+		System.arraycopy(this.Memory, 0, memory, 0, this.Memory.length);
+		PrintWriter outfile = new PrintWriter(outfilenames[1]);
+		Queue<PCB> processQueue = new LinkedList<PCB>(this.processQueue);
+		Queue<PCB> rejectQueue = new LinkedList<PCB>();
+		
+		while (!processQueue.isEmpty()) {
 			int smfitix = -1;	// Index of smallest mem slot large enough to fit process
 			int smfitsz = Integer.MAX_VALUE;	// Size of smallest mem slot large enough to fit process
 			for (int i = 0; i < Memory.length; i++) {
 				int slotSpace = Memory[i].getSpace();
-				if (ffq.peek().size <= slotSpace
+				if (processQueue.peek().size <= slotSpace
 						&& slotSpace < smfitsz) {
 					smfitsz = slotSpace;
 					smfitix = i;
@@ -99,21 +115,31 @@ public class Mallocator implements Runnable
 			}
 			
 			if (smfitix != -1)
-				Memory[smfitix].add(bfq.poll());
+				Memory[smfitix].add(processQueue.poll());
 		}
 		
 		
-		
-		/* Worst fit */
+		outfile.close();
+	}
+	
+	
+	
+	public void worstFit() throws FileNotFoundException
+	{
 		if (!QUIET) System.out.println("     ~ Worst Fit ~");
-		PrintWriter wfoutfile = new PrintWriter(outfilenames[2]);
-		Queue<PCB> wfq = new LinkedList<PCB>(processQueue);
-		while (!wfq.isEmpty()) {
-			int smfitix = Integer.MAX_VALUE;	// Index of largest mem slot large enough to fit process
-			int smfitsz = Integer.MAX_VALUE;	// Size of largest mem slot large enough to fit process
+		
+		MSB[] memory = new MSB[this.Memory.length];
+		System.arraycopy(this.Memory, 0, memory, 0, this.Memory.length);
+		PrintWriter outfile = new PrintWriter(outfilenames[2]);
+		Queue<PCB> processQueue = new LinkedList<PCB>(this.processQueue);
+		Queue<PCB> rejectQueue = new LinkedList<PCB>();
+		
+		while (!processQueue.isEmpty()) {
+			int smfitix = -1;	// Index of smallest mem slot large enough to fit process
+			int smfitsz = Integer.MAX_VALUE;	// Size of smallest mem slot large enough to fit process
 			for (int i = 0; i < Memory.length; i++) {
 				int slotSpace = Memory[i].getSpace();
-				if (ffq.peek().size <= slotSpace
+				if (processQueue.peek().size <= slotSpace
 						&& slotSpace > smfitsz) {
 					smfitsz = slotSpace;
 					smfitix = i;
@@ -121,10 +147,27 @@ public class Mallocator implements Runnable
 			}
 			
 			if (smfitix != -1)
-				Memory[smfitix].add(wfq.poll());
+				Memory[smfitix].add(processQueue.poll());
 		}
 		
+		outfile.close();
+	}
+	
+	
+	/**
+	 *  Begins execution of this Allocator.
+	 */
+	public void run() {
+		if (!QUIET) System.out.println(" ---------- MEM ALLOCATOR Execution ----------\n");
 		
+		try {
+			firstFit();
+			bestFit();
+			worstFit();
+		} catch (FileNotFoundException e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+		}
 		
 		if (!QUIET) System.out.println("\n ---------- MEM ALLOCATOR Execution Complete ---------- \n\n");
 	}
@@ -180,6 +223,7 @@ public class Mallocator implements Runnable
 		/* Invoke Mem Allocation program */
 		try {
 			Mallocator m = new Mallocator(mfs, pfs);
+			m.run();
 		} catch (InputMismatchException e) {
 			System.out.println("Mem Allocation error: illegal format of input files!");
 			e.printStackTrace();
