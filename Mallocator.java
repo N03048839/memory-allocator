@@ -85,14 +85,11 @@ public class Mallocator
 		}
 		
 		for (MSB slot : memory) 
-		{
 			for (PCB process : slot.contents.values())
 				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
-			outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
-			for (PCB process : rejectQueue)
-				outfile.print(process.id + ",");
-			
-		}
+		outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
+		for (PCB process : rejectQueue)
+			outfile.print(process.id + ",");
 		
 		outfile.close();
 	}
@@ -128,14 +125,11 @@ public class Mallocator
 		}
 		
 		for (MSB slot : memory) 
-		{
 			for (PCB process : slot.contents.values())
 				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
-			outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
-			for (PCB process : rejectQueue)
-				outfile.print(process.id + ",");
-			
-		}
+		outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
+		for (PCB process : rejectQueue)
+			outfile.print(process.id + ",");
 		
 		outfile.close();
 	}
@@ -171,14 +165,12 @@ public class Mallocator
 		}
 		
 		for (MSB slot : memory) 
-		{
 			for (PCB process : slot.contents.values())
 				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
-			outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
-			for (PCB process : rejectQueue)
-				outfile.print(process.id + ",");
-			
-		}
+		outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
+		for (PCB process : rejectQueue)
+			outfile.print(process.id + ",");
+		
 		outfile.close();
 	}
 	
@@ -249,13 +241,14 @@ public class Mallocator
 		final public int startIX;
 		final public int endIX;
 		
+		private int nextIX;
 		private int space;
 		private HashMap<Integer,PCB> contents;
 		
 		MSB(int id, int startIX, int endIX) {
 			this.id = id;
 			this.size = space = endIX - startIX;
-			this.startIX = startIX;
+			this.startIX = nextIX = startIX;
 			this.endIX = endIX;
 			
 			contents = new java.util.HashMap<Integer,PCB>();
@@ -276,6 +269,8 @@ public class Mallocator
 						+ " to block m" + this.id + ": insufficient space!" 
 						+ "(" + process.size + "/" + space + ")");
 			contents.put(process.id, process);
+			process.setstartix(nextIX);
+			nextIX += process.size;
 			space -= process.size;
 		}
 		
@@ -283,7 +278,9 @@ public class Mallocator
 			if (!contents.containsKey(pid))
 				throw new IllegalArgumentException("Error removing process p" + pid
 						+ " from block m" + this.id + ": process not found!");
-			space += contents.remove(pid).size;
+			PCB process = contents.remove(pid);
+			nextIX -= process.size;
+			space += process.size;
 		}
 	}
 	
@@ -317,7 +314,7 @@ public class Mallocator
 		public int getendix() {
 			return startix + size;
 		}
-		public void set(int index) {
+		public void setstartix(int index) {
 			startix += index;
 		}
 		
