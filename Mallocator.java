@@ -17,7 +17,7 @@ public class Mallocator
 	static final String[] OFNAMES = { "FFoutput.data", "BFoutput.data", "WFoutput.data" };
 	
 	private static boolean QUIET = false;
-	private static boolean DEBUG;
+	private static boolean DEBUG = true;
 	
 	private String[] outfilenames;
 	
@@ -53,7 +53,6 @@ public class Mallocator
 					minput.nextInt()));	// Process size
 		
 		minput.close();
-		//pinput.close();
 		if (!QUIET) System.out.println("\n -------- MEM ALLOCATOR Constructed --------\n\n");
 	}
 	
@@ -63,8 +62,8 @@ public class Mallocator
 	{
 		if (!QUIET) System.out.println("     ~ First Fit ~");
 		
-		MSB[] memory = new MSB[this.Memory.length];
-		System.arraycopy(this.Memory, 0, memory, 0, this.Memory.length);
+		MSB[] memory = arrDup(this.Memory);
+		arrPrint(memory);
 		PrintWriter outfile = new PrintWriter(outfilenames[0]);
 		Queue<PCB> processQueue = new LinkedList<PCB>(this.processQueue);
 		Queue<PCB> rejectQueue = new LinkedList<PCB>();
@@ -84,6 +83,7 @@ public class Mallocator
 			if (!added) rejectQueue.add(processQueue.poll());
 		}
 		
+		arrPrint(memory);
 		for (MSB slot : memory) 
 			for (PCB process : slot.contents.values())
 				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
@@ -100,8 +100,8 @@ public class Mallocator
 	{
 		if (!QUIET) System.out.println("     ~ Best Fit ~");
 		
-		MSB[] memory = new MSB[this.Memory.length];
-		System.arraycopy(this.Memory, 0, memory, 0, this.Memory.length);
+		MSB[] memory = arrDup(this.Memory);
+		arrPrint(memory);
 		PrintWriter outfile = new PrintWriter(outfilenames[1]);
 		Queue<PCB> processQueue = new LinkedList<PCB>(this.processQueue);
 		Queue<PCB> rejectQueue = new LinkedList<PCB>();
@@ -124,6 +124,7 @@ public class Mallocator
 				memory[smfitix].add(processQueue.poll());
 		}
 		
+		arrPrint(memory);
 		for (MSB slot : memory) 
 			for (PCB process : slot.contents.values())
 				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
@@ -140,8 +141,8 @@ public class Mallocator
 	{
 		if (!QUIET) System.out.println("     ~ Worst Fit ~");
 		
-		MSB[] memory = new MSB[this.Memory.length];
-		System.arraycopy(this.Memory, 0, memory, 0, this.Memory.length);
+		MSB[] memory = arrDup(this.Memory);
+		arrPrint(memory);
 		PrintWriter outfile = new PrintWriter(outfilenames[2]);
 		Queue<PCB> processQueue = new LinkedList<PCB>(this.processQueue);
 		Queue<PCB> rejectQueue = new LinkedList<PCB>();
@@ -164,6 +165,7 @@ public class Mallocator
 				memory[smfitix].add(processQueue.poll());
 		}
 		
+		arrPrint(memory);
 		for (MSB slot : memory) 
 			for (PCB process : slot.contents.values())
 				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
@@ -217,7 +219,8 @@ public class Mallocator
 			try {
 				m.firstFit();
 				m.bestFit();
-				m.worstFit();
+				//m.worstFit();
+				
 			} catch (FileNotFoundException e) {
 				System.out.println(e.getMessage());
 				e.printStackTrace();
@@ -231,11 +234,42 @@ public class Mallocator
 	}
 	
 	
+	MSB[] arrDup(MSB[] array)
+	{
+		MSB[] newarr = new MSB[array.length];
+		for (int i = 0; i < newarr.length; i++)
+			newarr[i] = new MSB(array[i]);
+		
+		return newarr;
+	}
+	
+	
+	static void arrPrint(MSB[] array)
+	{
+		if (QUIET) return;
+		for (MSB slot : array) {
+			System.out.print("   [m" + slot.id + ", " + slot.nextIX + ", " + (slot.size - slot.getSpace()) + "/" + slot.size + "]");
+			if (DEBUG) {
+				System.out.print("\n");
+				if (slot.contents.values().size() > 0)
+					System.out.print("        ");
+				for (PCB p : slot.contents.values())
+					System.out.print("    (p" + p.id + ", " + p.startix + ", " + (p.startix + p.size) + ")");
+				if (slot.contents.values().size() > 0)
+					System.out.println();
+			}
+		}
+		System.out.println();
+		
+	}
+	
+	
+	
 	
 	/**
 	 * Represents a single block of memory.
 	 */
-	private class MSB {
+	class MSB {
 		final public int id;
 		final public int size;
 		final public int startIX;
@@ -254,6 +288,15 @@ public class Mallocator
 			contents = new java.util.HashMap<Integer,PCB>();
 		}
 		
+		MSB(MSB original) {
+			this.id = original.id;
+			this.startIX = this.nextIX = original.startIX;
+			this.endIX = original.endIX;
+			this.size = this.space = this.endIX - this.startIX;
+			
+			this.contents = new java.util.HashMap<Integer,PCB>();
+		}
+		
 		public int getSpace() {
 			return space;
 		}
@@ -268,6 +311,10 @@ public class Mallocator
 				throw new IllegalArgumentException("Error adding process p" + process.id 
 						+ " to block m" + this.id + ": insufficient space!" 
 						+ "(" + process.size + "/" + space + ")");
+			if (DEBUG) {
+				System.out.println("  --- Adding process: p" + process.id
+						+ "\n      nextIX: " + nextIX);
+			}
 			contents.put(process.id, process);
 			process.setstartix(nextIX);
 			nextIX += process.size;
@@ -288,7 +335,7 @@ public class Mallocator
 	/**
 	 * Represents a single process.
 	 */
-	private class PCB 
+	class PCB 
 	{
 		final public int id;
 		final public int size;
@@ -315,7 +362,7 @@ public class Mallocator
 			return startix + size;
 		}
 		public void setstartix(int index) {
-			startix += index;
+			startix = index;
 		}
 		
 	}
