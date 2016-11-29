@@ -10,7 +10,7 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Scanner;
 
-public class Mallocator implements Runnable
+public class Mallocator
 {
 	static final String IFNAME_M_DEF = "Minput.data";
 	static final String IFNAME_P_DEF = "Pinput.data";
@@ -28,7 +28,7 @@ public class Mallocator implements Runnable
 	private MSB[] Memory;
 	
 	
-	public Mallocator(Scanner minput, Scanner pinput)
+	public Mallocator(Scanner minput)
 	{
 		
 		if (!QUIET) System.out.println(" -------- Constructing MEM ALLOCATOR --------");
@@ -46,16 +46,18 @@ public class Mallocator implements Runnable
 				);
 		
 		/* Reads process information */
-		PROCESS_CNT = pinput.nextInt();
+		PROCESS_CNT = minput.nextInt();
 		for (int i = 1; i <= PROCESS_CNT; i++)
 			processQueue.add( new PCB(
-					pinput.nextInt(),	// Process id
-					pinput.nextInt()));	// Process size
+					minput.nextInt(),	// Process id
+					minput.nextInt()));	// Process size
 		
 		minput.close();
-		pinput.close();
+		//pinput.close();
 		if (!QUIET) System.out.println("\n -------- MEM ALLOCATOR Constructed --------\n\n");
 	}
+	
+	
 	
 	public void firstFit() throws FileNotFoundException 
 	{
@@ -84,7 +86,12 @@ public class Mallocator implements Runnable
 		
 		for (MSB slot : memory) 
 		{
-			//TODO: implement file output
+			for (PCB process : slot.contents.values())
+				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
+			outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
+			for (PCB process : rejectQueue)
+				outfile.print(process.id + ",");
+			
 		}
 		
 		outfile.close();
@@ -105,8 +112,8 @@ public class Mallocator implements Runnable
 		while (!processQueue.isEmpty()) {
 			int smfitix = -1;	// Index of smallest mem slot large enough to fit process
 			int smfitsz = Integer.MAX_VALUE;	// Size of smallest mem slot large enough to fit process
-			for (int i = 0; i < Memory.length; i++) {
-				int slotSpace = Memory[i].getSpace();
+			for (int i = 0; i < memory.length; i++) {
+				int slotSpace = memory[i].getSpace();
 				if (processQueue.peek().size <= slotSpace
 						&& slotSpace < smfitsz) {
 					smfitsz = slotSpace;
@@ -114,10 +121,21 @@ public class Mallocator implements Runnable
 				}
 			}
 			
-			if (smfitix != -1)
-				Memory[smfitix].add(processQueue.poll());
+			if (smfitix == -1)
+				rejectQueue.add(processQueue.poll());
+			else
+				memory[smfitix].add(processQueue.poll());
 		}
 		
+		for (MSB slot : memory) 
+		{
+			for (PCB process : slot.contents.values())
+				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
+			outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
+			for (PCB process : rejectQueue)
+				outfile.print(process.id + ",");
+			
+		}
 		
 		outfile.close();
 	}
@@ -137,8 +155,8 @@ public class Mallocator implements Runnable
 		while (!processQueue.isEmpty()) {
 			int smfitix = -1;	// Index of smallest mem slot large enough to fit process
 			int smfitsz = Integer.MAX_VALUE;	// Size of smallest mem slot large enough to fit process
-			for (int i = 0; i < Memory.length; i++) {
-				int slotSpace = Memory[i].getSpace();
+			for (int i = 0; i < memory.length; i++) {
+				int slotSpace = memory[i].getSpace();
 				if (processQueue.peek().size <= slotSpace
 						&& slotSpace > smfitsz) {
 					smfitsz = slotSpace;
@@ -146,39 +164,29 @@ public class Mallocator implements Runnable
 				}
 			}
 			
-			if (smfitix != -1)
-				Memory[smfitix].add(processQueue.poll());
+			if (smfitix == -1)
+				rejectQueue.add(processQueue.poll());
+			else
+				memory[smfitix].add(processQueue.poll());
 		}
 		
+		for (MSB slot : memory) 
+		{
+			for (PCB process : slot.contents.values())
+				outfile.println(process.getstartix() + "    " + process.getendix() + "    " + process.id);
+			outfile.print("-" + (rejectQueue.isEmpty()? "0" : ""));
+			for (PCB process : rejectQueue)
+				outfile.print(process.id + ",");
+			
+		}
 		outfile.close();
 	}
-	
-	
-	/**
-	 *  Begins execution of this Allocator.
-	 */
-	public void run() {
-		if (!QUIET) System.out.println(" ---------- MEM ALLOCATOR Execution ----------\n");
-		
-		try {
-			firstFit();
-			bestFit();
-			worstFit();
-		} catch (FileNotFoundException e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-		}
-		
-		if (!QUIET) System.out.println("\n ---------- MEM ALLOCATOR Execution Complete ---------- \n\n");
-	}
-	
 	
 	
 	
 	public static void main(String[] args)
 	{
 		String memfilename = IFNAME_M_DEF;
-		String prcfilename = IFNAME_P_DEF;
 		for (int i = 1; i <= args.length; i++) 
 		{
 			/* Parse Args: suppress display output */
@@ -195,14 +203,11 @@ public class Mallocator implements Runnable
 			/* Parse Args: set new mem input file  */
 			if (args[i-1].matches("-mf"))
 				memfilename = args[i];
-			/* Parse Args: set new process input file */
-			if (args[i-1].matches("-pf"))
-				prcfilename = args[i];
 		}
 		
 		
-		Scanner mfs, pfs;
-		mfs = pfs = null;
+		Scanner mfs;
+		mfs = null;
 		
 		/* Reads Mem file */
 		try {
@@ -212,18 +217,21 @@ public class Mallocator implements Runnable
 			e.printStackTrace();
 		}
 		
-		/* Reads Process file */
-		try {
-			pfs = new Scanner( new File(prcfilename) );
-		} catch (IOException e) {
-			System.out.println("Mem Allocation error: cannot find input file \"" + prcfilename + "\" in current directory!");
-			e.printStackTrace();
-		}
-		
 		/* Invoke Mem Allocation program */
 		try {
-			Mallocator m = new Mallocator(mfs, pfs);
-			m.run();
+			Mallocator m = new Mallocator(mfs);
+			if (!QUIET) System.out.println(" ---------- MEM ALLOCATOR Execution ----------\n");
+			
+			try {
+				m.firstFit();
+				m.bestFit();
+				m.worstFit();
+			} catch (FileNotFoundException e) {
+				System.out.println(e.getMessage());
+				e.printStackTrace();
+			}
+			
+			if (!QUIET) System.out.println("\n ---------- MEM ALLOCATOR Execution Complete ---------- \n\n");
 		} catch (InputMismatchException e) {
 			System.out.println("Mem Allocation error: illegal format of input files!");
 			e.printStackTrace();
@@ -263,7 +271,7 @@ public class Mallocator implements Runnable
 		 */
 		public void add(PCB process) {
 			if (process == null) return;
-			if (process.size >= space)
+			if (process.size > space)
 				throw new IllegalArgumentException("Error adding process p" + process.id 
 						+ " to block m" + this.id + ": insufficient space!" 
 						+ "(" + process.size + "/" + space + ")");
